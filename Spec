@@ -1,0 +1,250 @@
+Overseer Split — Unified Implementation Specification
+
+---
+
+1. Contradiction Resolution Log
+
+ID	Source A	Source B	Locked Decision Applied	Resolution	
+C1	SPLIT_PLAN §3, §5 references "5 services" and 5 service conversions	B-1 answer reveals 8 service subclasses (BundleGitBot, HttpApi, McpManager, Odysseus, RootStock, SubagentViewer, Telegram, VoiceClipboard) plus `_FailedService`	B-1 is authoritative codebase analysis	All 8 service subclasses receive `action_descriptors()` + `handle_action()`. `_FailedService` is deleted in the tray rewrite (Chunk 4).	
+C2	SPLIT_PLAN §6 / impl spec §3.8 lists 6 `FORBIDDEN_PREFIXES` including non-existent `overseer.engine`	B-1 answer reveals 8 actual service module paths under `overseer/`	B-1 is authoritative codebase analysis	`FORBIDDEN_PREFIXES` expanded to 8 actual modules: `overseer.bundlegitbot_service`, `overseer.http_api_service`, `overseer.mcp_manager`, `overseer.odysseus_service`, `overseer.rootstock`, `overseer.subagent_viewer`, `overseer.telegram_service`, `overseer.voice_clipboard`. `overseer.engine` removed (does not exist).	
+C3	SPLIT_PLAN §2, §3.3 assumes `bridge/main.py` is the Daemon's HTTP layer to be extended with Overseer endpoints	B-2 answer reveals `bridge/main.py` is the MCP Bridge with existing lifespan, `app.state = {http_client, configs, pool, registry, router}`, and 6 existing routes	`bridge/` is in-process with daemon (locked decision)	`bridge/main.py` becomes the unified Daemon HTTP layer. All existing MCP bridge components and routes are preserved. The lifespan is extended to also instantiate the 8 Overseer services, create `ActionRegistry`, and register action handlers. New Overseer endpoints (`/status`, `/services`, `/actions`, `/action/{id}`) are added alongside existing MCP bridge routes.	
+C4	SPLIT_PLAN §3 states "Current State: `menu_items()` returns Python callables"	B-1 answer states "Signature is identical across all: `def menu_items(self) -> list[dict]`"	B-1 is authoritative codebase analysis	`menu_items()` returns `list[dict]`, not callables. The transformation converts each dict to an `ActionDescriptor` and moves the execution logic into `handle_action(action_id)`.	
+C5	Context labels B-1 and B-2 as "pending blockers" requiring `[BLOCKED]` flags	Uploaded file contains complete answers to both B-1 (exact service set + file paths) and B-2 (lifespan structure + existing routes)	B-1 and B-2 are resolved by the uploaded analysis	No tasks are blocked. All 20 tasks proceed. B-1 and B-2 answers are incorporated into the relevant chunks.	
+C6	PLAN.md Track 9 shows BundleGitBot dynamic labels ("Last Push: 2m ago", "Received (3)") in the tray menu	Locked decision: "Dynamic tray labels move to GUI popup `ServiceView.detail` cards, not tray menu"	Locked decision takes precedence	Tray menu contains only static `ActionDescriptor` items. Dynamic data (timestamps, counts, health detail) is rendered in the GUI popup's `ServiceCard` widgets, populated from `ServiceView.detail`.	
+C7	Current `tray_host.py` imports `ServiceStatus`, `BaseService`, `show_toast` from `overseer.base`	Locked decision: "Zero service imports in Tray/GUI"	Locked decision takes precedence	`ServiceView.status` is a string (the `.value` of the enum). The daemon converts `ServiceStatus` → string. Tray and GUI never import `overseer.base`.	
+
+---
+
+2. Unified Architecture Statement
+
+2.1 Process Architecture
+
+The system runs as three distinct processes communicating exclusively over HTTP:
+
+1. Daemon — A single FastAPI application (`bridge/main.py`, extended) listening on `127.0.0.1:7842`. It hosts both the existing MCP Bridge routes and the new Overseer daemon routes. It owns all 8 service instances and the `ActionRegistry`. It is the sole source of truth for service state and action dispatch.
+
+2. Tray Client — A persistent `pystray` process (`overseer/tray_host.py`, rewritten). It polls `GET /status` every 3 seconds. It rebuilds its menu from `GET /actions` only when `state_hash` changes. It triggers actions via `POST /action/{id}`. It launches the GUI via `subprocess.Popen`. It imports zero Overseer service modules and zero Qt modules.
+
+3. GUI Popup — An ephemeral PySide6 process (`overseer/gui.py`, rewritten) spawned by the tray. It fetches full service detail from `GET /services` and action catalogs from `GET /actions`. It renders resizable service cards with action buttons. It uses `state_hash` gating to skip redundant redraws, caches compiled stylesheets, and persists window geometry to `~/.overseer/gui_geometry.json`. It imports zero Overseer service modules.
+
+2.2 Action Boundary (Keystone)
+
+The architectural invariant is zero callables crossing process boundaries.
+
+- Each service implements `action_descriptors(self) -> list[ActionDescriptor]` returning serializable Pydantic models with fields: `id` (stable string, namespaced as `"<service_id>.<verb>"`), `label`, `service_id`, `danger`, `params_schema`.
+- Each service implements `handle_action(self, action_id: str) -> ActionResult` as the daemon-only execution entry point.
+- The daemon's `ActionRegistry` maps string `id` → in-process handler closure at startup. The closure calls `service.handle_action(action_id)`.
+- External clients (Tray, GUI) trigger actions only via `POST /action/{id}`. The endpoint returns HTTP 202 with an `ActionRun` in `PENDING` state. The handler executes on a `threading.Thread(daemon=True)`. Results surface via `GET /status` (`recent_runs`) and `ActionRegistry.get_run()`.
+
+2.3 HTTP Endpoint Contract
+
+Endpoint	Method	Response Model	Purpose	Caller	
+`/status`	GET	`StatusDigest`	Lightweight digest with `state_hash`, `service_count`, `healthy_count`, `recent_runs`	Tray (3s poll)	
+`/services`	GET	`list[ServiceView]`	Full per-service detail (`service_id`, `name`, `status`, `detail`)	GUI (on hash change)	
+`/actions`	GET	`list[ActionDescriptor]`	Static action catalog	Tray, GUI (on hash change)	
+`/action/{id}`	POST	`ActionRun`	Async dispatch. 202 Accepted. Never blocks.	Tray, GUI	
+
+No merged `/state` endpoint exists. The tray polls `/status` only; it fetches `/services` and `/actions` only when `state_hash` changes.
+
+2.4 State Hash & Incremental UI
+
+- `compute_state_hash(services)` in `bridge/registry.py` produces a deterministic SHA-256 hex digest over the canonical JSON of all `ServiceView` objects (sorted by `service_id`, compact separators, `default=str`). Identical service states → identical hash. Any change to `status` or `detail` → different hash.
+- The GUI's `ServiceListPopup.should_redraw(new_hash)` compares the incoming hash to `self._last_hash`. If equal, `refresh()` returns early without touching Qt widgets. This eliminates problem #3 (full reconstruction every tick).
+- The stylesheet is compiled once per state change and cached. `cached_stylesheet(state_key)` short-circuits when the key matches the cached key. This eliminates problem #4 (unconditional stylesheet rewrite).
+
+2.5 Window Geometry & Resizing
+
+- The GUI popup is resizable with `setMinimumSize(360, 240)`. All fixed-size constraints are removed.
+- On `closeEvent`, `save_geometry()` writes `{"x": int, "y": int, "w": int, "h": int}` to `~/.overseer/gui_geometry.json`. The write is wrapped in `try/except OSError`; failure is swallowed. Closing the GUI never stalls the daemon (zero service calls, zero HTTP in teardown).
+- On `__init__`, `load_geometry()` reads the file and applies `setGeometry()` if present. Missing or corrupt file is silently ignored.
+
+2.6 Launch Orchestration
+
+`overseer/cli.py` launches:
+
+1. Daemon: `subprocess.Popen([sys.executable, "-m", "uvicorn", "bridge.main:app", "--host", "127.0.0.1", "--port", "7842"])`
+   - Readiness gate: poll `GET /status` up to 30 times with 0.5s sleep until HTTP 200.
+2. Tray: `subprocess.Popen([sys.executable, "-m", "overseer.tray_host", "--base-url", "http://127.0.0.1:7842"])`
+3. GUI: Not launched by cli.py. The tray's `spawn_gui()` runs `subprocess.Popen([sys.executable, "-m", "overseer.gui", "--base-url", "http://127.0.0.1:7842"])`.
+
+`--dry-run` prints the process tree without spawning. Shutdown handler sends SIGTERM to daemon and tray children.
+
+2.7 Boundary Enforcement
+
+`scripts/audit_boundaries.py` is an AST-based scanner. It parses `overseer/tray_host.py`, `overseer/gui.py`, and `overseer/http_client.py`. It exits `0` iff clean, `1` otherwise.
+
+- Service-import rule: Any `ast.Import`/`ast.ImportFrom` targeting a `FORBIDDEN_PREFIXES` module (exact match or dotted prefix) is a violation. Relative imports are reconstructed to absolute form (`overseer.<module>`).
+- Qt rule: `tray_host.py` may not import `PySide6`, `PyQt5`, or `PyQt6` (exact or dotted prefix).
+- Verification mirrors (grep, from plan):
+  - `grep -rn "import.*overseer\.\(bundlegitbot_service\|http_api_service\|mcp_manager\|odysseus_service\|rootstock\|subagent_viewer\|telegram_service\|voice_clipboard\)" overseer/tray_host.py overseer/gui.py overseer/http_client.py` must return 0 matches.
+  - `grep -n "PySide6\|PyQt" overseer/tray_host.py` must return 0 matches.
+
+2.8 Service Set (Resolved B-1)
+
+The 8 service modules and their recommended `service_id` values:
+
+Module	Class	`service_id`	
+`overseer/bundlegitbot_service.py`	`BundleGitBot`	`bundlegitbot`	
+`overseer/http_api_service.py`	`HttpApi`	`http_api`	
+`overseer/mcp_manager.py`	`McpManager`	`mcp_manager`	
+`overseer/odysseus_service.py`	`Odysseus`	`odysseus`	
+`overseer/rootstock.py`	`RootStock`	`rootstock`	
+`overseer/subagent_viewer.py`	`SubagentViewer`	`subagent_viewer`	
+`overseer/telegram_service.py`	`Telegram`	`telegram`	
+`overseer/voice_clipboard.py`	`VoiceClipboard`	`voice_clipboard`	
+
+2.9 Existing MCP Bridge Context (Resolved B-2)
+
+`bridge/main.py` currently:
+- Has a lifespan context manager attaching `app.state.http_client`, `app.state.configs`, `app.state.pool`, `app.state.registry` (SchemaRegistry), `app.state.router`
+- Exposes 6 routes: `POST /register`, `DELETE /agents/{id}`, `POST /tools/call`, `GET /tools/list`, `GET /pool/status`, `GET /health`
+- Imports from `overseer.dotenv` and bridge submodules
+
+The unified Daemon extends this lifespan to also instantiate the 8 Overseer services, create an `ActionRegistry`, register all action descriptors, and attach `app.state.overseer_services` and `app.state.action_registry`. The new Overseer endpoints coexist with the existing MCP bridge routes.
+
+---
+
+3. Chunked Worker Prompts
+
+---
+
+Chunk 1: Foundation Models, Registry, and State Hash
+Tasks: 1.1, 1.2, 2.1, 2.2
+
+Files:
+- `bridge/models.py` — MODIFY (extend existing file; do not remove existing models unless they duplicate the new ones)
+- `bridge/registry.py` — CREATE
+
+What to implement in `bridge/models.py`:
+Add the following classes with exact field names, types, and defaults:
+
+1. `ActionRunState(str, Enum)` — members: `PENDING = "pending"`, `RUNNING = "running"`, `SUCCEEDED = "succeeded"`, `FAILED = "failed"`. No other members.
+2. `ActionDescriptor(BaseModel)` — `id: str`, `label: str`, `service_id: str`, `danger: bool = False`, `params_schema: Optional[dict] = None`.
+3. `ActionResult(BaseModel)` — `ok: bool`, `message: str`.
+4. `ActionRun(BaseModel)` — `action_run_id: str`, `action_id: str`, `state: ActionRunState`, `result: Optional[ActionResult] = None`.
+5. `ServiceView(BaseModel)` — `service_id: str`, `name: str`, `status: str` (the string `.value` of the existing `ServiceStatus` enum), `detail: dict`.
+6. `StatusDigest(BaseModel)` — `state_hash: str`, `service_count: int`, `healthy_count: int`, `recent_runs: list[ActionRun]`.
+
+What to implement in `bridge/registry.py`:
+Create the file with these exact imports: `hashlib`, `json`, `threading`, `uuid`, `typing.Callable`, `typing.Iterable`, `typing.Optional`, and the models from `bridge.models`.
+
+Implement `ActionRegistry`:
+- `__init__(self)`: create `self._handlers` (dict `str → Callable[[], ActionResult]`), `self._descriptors` (dict `str → ActionDescriptor`), `self._runs` (dict `str → ActionRun`), `self._runs_order` (list of run IDs, newest appended), `self._lock` (`threading.Lock()`).
+- `register(self, descriptor, handler)`: acquire lock, store descriptor and handler by `descriptor.id`. Overwrite if duplicate. Raise `ValueError("descriptor.id must be non-empty")` if id is empty.
+- `list_descriptors(self)`: acquire lock, return `list(self._descriptors.values())` sorted by `id` ascending.
+- `dispatch(self, action_id)`: acquire lock. If `action_id` missing, raise `KeyError(action_id)`. Generate `run_id = uuid.uuid4().hex`. Build `ActionRun(action_run_id=run_id, action_id=action_id, state=ActionRunState.PENDING, result=None)`. Store in `self._runs` and append to `self._runs_order`; if length exceeds 20, pop oldest from front and delete from `self._runs`. Capture `handler`. Release lock. Define inner `_run()` that: (a) acquires lock, sets state to `RUNNING` by replacing the map entry with a new `ActionRun` copy; (b) calls `handler()` outside the lock, catching all `Exception` and converting to `ActionResult(ok=False, message=str(exc))` with state `FAILED` on exception, or `SUCCEEDED` if result.ok else `FAILED` on success; (c) acquires lock and replaces the run entry with terminal state + result. Start `threading.Thread(target=_run, daemon=True).start()`. Return the PENDING run object.
+- `get_run(self, action_run_id)`: acquire lock, return `self._runs.get(action_run_id)`.
+- `recent_runs(self, limit=20)`: acquire lock, return runs for the last `limit` IDs in `self._runs_order`, newest-first (reverse the slice).
+
+Implement `compute_state_hash(services)`:
+- Materialize iterable to list.
+- Build canonical dicts: `{"service_id": s.service_id, "status": s.status, "detail": s.detail}` for each service. Exclude `name`.
+- Sort list by `service_id` ascending.
+- Serialize with `json.dumps(canonical, sort_keys=True, separators=(",", ":"), default=str)`.
+- Return `hashlib.sha256(serialized.encode("utf-8")).hexdigest()`.
+
+Verification commands:
+
+```
+python -c "from bridge.models import ActionDescriptor, ActionResult, ActionRun, ServiceView, StatusDigest" && echo "PASS"
+python -c "from bridge.registry import ActionRegistry, compute_state_hash" && echo "PASS"
+python -c "from bridge.models import ServiceView; from bridge.registry import compute_state_hash; v=[ServiceView(service_id='a',name='A',status='running',detail={})]; h1=compute_state_hash(v); h2=compute_state_hash(v); assert h1==h2; v[0].detail['x']=1; h3=compute_state_hash(v); assert h1!=h3; print('PASS')"
+```
+
+Forbidden:
+- Do NOT import any `overseer.*` module in `bridge/models.py` or `bridge/registry.py`.
+- Do NOT use `asyncio.create_task` or `subprocess` in `ActionRegistry.dispatch`; use `threading.Thread(daemon=True)` only.
+- Do NOT add extra methods to the Pydantic models.
+- Do NOT read or validate `params_schema` in v1; it must exist as a field but always serialize as `null`.
+
+---
+
+Chunk 2: Service Contract Conversion (8 Services)
+Task: 1.3
+
+Files:
+- `overseer/base.py` — MODIFY
+- `overseer/bundlegitbot_service.py` — MODIFY
+- `overseer/http_api_service.py` — MODIFY
+- `overseer/mcp_manager.py` — MODIFY
+- `overseer/odysseus_service.py` — MODIFY
+- `overseer/rootstock.py` — MODIFY
+- `overseer/subagent_viewer.py` — MODIFY
+- `overseer/telegram_service.py` — MODIFY
+- `overseer/voice_clipboard.py` — MODIFY
+
+What to implement in `overseer/base.py`:
+- Remove the abstract `menu_items()` method entirely.
+- Add `@abstractmethod def action_descriptors(self) -> list[ActionDescriptor]: ...` with docstring: "Return serializable descriptors. NO callables."
+- Add `@abstractmethod def handle_action(self, action_id: str) -> ActionResult: ...` with docstring: "Execute the named action in-process. Return ActionResult. On unknown action_id, return ActionResult(ok=False, message=f'unknown action: {action_id}')."
+
+What to implement in each of the 8 service files:
+For each service, perform this exact transformation:
+
+1. Read the file. Find the `menu_items(self) -> list[dict]` method.
+2. Replace it with `action_descriptors(self) -> list[ActionDescriptor]`.
+3. For each dict previously returned by `menu_items()`, create an `ActionDescriptor`:
+   - `id`: use pattern `"<service_id>.<verb>"` where `service_id` is from the table in §2.8 and `<verb>` is the label lowercased with spaces replaced by underscores (e.g., `"bundlegitbot.push_now"`, `"mcp_manager.start"`).
+   - `label`: the display string from the dict (e.g., `"Push Now"`, `"Start"`).
+   - `service_id`: the value from §2.8.
+   - `danger`: `True` only for destructive actions (e.g., stop, clear, delete). Default `False`.
+   - `params_schema`: `None`.
+4. Add `handle_action(self, action_id: str) -> ActionResult`:
+   - Parse the `action_id` string.
+   - Dispatch to the method that the old menu dict's callback was invoking. If the old dict had `"action": self.push`, then `handle_action` should call `self.push()` when `action_id == "bundlegitbot.push_now"`.
+   - Wrap the call in `try/except Exception` and return `ActionResult(ok=False, message=str(e))` on failure.
+   - Return `ActionResult(ok=True, message="...")` on success.
+   - If `action_id` is not recognized by this service, return `ActionResult(ok=False, message=f"unknown action: {action_id}")`.
+5. Add the import: `from bridge.models import ActionDescriptor, ActionResult`.
+6. Remove any `Callable` import that was only used by the old `menu_items()` signature.
+
+Note on service-specific actions: If a service's `menu_items()` currently returns an empty list `[]`, implement `action_descriptors()` to return `[]` and `handle_action()` to return `ActionResult(ok=False, message="unknown action")` for all inputs. If a service has dynamic labels (e.g., "Last Push: 2m ago"), convert only the actionable items to descriptors. Dynamic status data will move to `ServiceView.detail` in Chunk 3.
+
+Verification commands:
+
+```
+grep -rn "def menu_items" overseer/*_service.py overseer/rootstock.py overseer/voice_clipboard.py overseer/mcp_manager.py overseer/subagent_viewer.py || echo "PASS: no menu_items definitions remain"
+python -c "from overseer.base import BaseService; import inspect; assert 'action_descriptors' in {m.name for m in inspect.getmembers(BaseService, predicate=inspect.isfunction)}; assert 'handle_action' in {m.name for m in inspect.getmembers(BaseService, predicate=inspect.isfunction)}; print('PASS')"
+```
+
+Forbidden:
+- Do NOT retain `menu_items()` as an abstract method.
+- Do NOT return `Callable` objects from `action_descriptors()`.
+- Do NOT import Qt modules into any service file.
+- Do NOT add new features (new actions) not present in the existing `menu_items()`.
+
+---
+
+Chunk 3: Daemon Endpoints and Lifespan Extension
+Tasks: 1.4, 2.3
+
+Files:
+- `bridge/main.py` — MODIFY
+
+What to implement:
+Read the existing `bridge/main.py`. It has a lifespan context manager, `app.state` with `{http_client, configs, pool, registry, router}`, and 6 existing routes. Preserve all of these exactly.
+
+Add the following:
+
+New imports (add to top, deduplicate):
+
+```
+from bridge.models import ActionDescriptor, ActionRun, ServiceView, StatusDigest
+from bridge.registry import ActionRegistry, compute_state_hash
+from overseer.base import BaseService
+from overseer.bundlegitbot_service import BundleGitBot
+from overseer.http_api_service import HttpApi
+from overseer.mcp_manager import McpManager
+from overseer.odysseus_service import Odysseus
+from overseer.rootstock import RootStock
+from overseer.subagent_viewer import SubagentViewer
+from overseer.telegram_service import Telegram
+from overseer.voice_clipboard import VoiceClipboard
+```
+
+Lifespan extension:
+Inside the existing lifespan startup (before `yield`), add:
+1. Instantiate the 8 services in a list: `overseer_services = [BundleGitBot(), HttpApi(), McpManager(), Odysseus(), RootStock(), SubagentViewer(), Telegram(), VoiceClipboard()]`. If any service `__init__` requires arguments, read its signature and provide the minimal required arguments using existing codebase patterns.
+2. Start each service: `for svc in overseer_services: svc.start()`.
+3. Create `action_registry = ActionRegistry()`.
+4. For each service: 
