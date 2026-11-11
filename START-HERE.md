@@ -104,3 +104,7 @@ Keep your Passport in a note you control. A fresh chat may not automatically rem
 You should leave with a practical distinction between the two projects, **one revised prompt whose intended result and success test you can explain**, and a short Passport for the next session. You do not need a working MCP deployment to reach that milestone.
 
 For deeper reading, use the [KGO skill guide](kimi-genesis-orch/README.md) and the [Overseer Hub starter guide](overseer-hub-starter/README.md). The latter includes a separate, approval-gated deployment handoff only if you choose to explore setup later.
+
+## NotebookLM newcomer path
+
+This page focuses on learning KGO and Overseer Hub. For the **separate, hands-on NotebookLM installation and optional multi-account setup**, open [`notebooklm-starter/README.md`](notebooklm-starter/README.md) and give its copyable prompt to your agent. It explains what needs your approval, how to authenticate on your own computer and how to prove the CLI really works without sharing passwords or cookies.
