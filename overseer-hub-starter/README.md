@@ -1,5 +1,7 @@
 # Overseer Hub Starter — your own ChatGPT MCP backend
 
+**Want to learn both KGO and Overseer together?** Use the [guided ChatGPT starter prompt](../START-HERE.md) before tackling individual setup or installation.
+
 A **working, read-only teaching implementation** of the key public-facing Overseer Hub pattern: an HTTPS-reachable MCP endpoint, Auth0 access-token verification, identity-aware tool discovery, and a tiny allowlisted backend. It is designed to be understandable and independently deployable without connecting to the maintainer's infrastructure.
 
 **Start with an AI agent:** Open the public repository in a coding agent with file and terminal access. Paste the [agent handoff prompt](#agent-handoff-prompt), and let it inspect your operating system and available services before proposing setup changes. A chat-only agent can explain the files but cannot install or deploy them without appropriate tools.

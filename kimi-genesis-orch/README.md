@@ -1,5 +1,7 @@
 # Kimi Genesis Orchestrator (KGO)
 
+**Want to learn both KGO and Overseer together?** Use the [guided ChatGPT starter prompt](../START-HERE.md) before tackling individual setup or installation.
+
 **A practical guide to reasoning through work and designing instructions for AI agents.** This is a skill (a set of Markdown instructions), not an AI model, app, or autonomous agent service. You can use it to improve an agent's *own approach* to a task, or to prepare a more reliable prompt for a separate worker agent.
 
 This public package is synchronized from the maintainer's current canonical skill. Its core skill, references, and invocation policy are preserved verbatim. The source files below, not this overview, define the method.

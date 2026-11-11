@@ -1,4 +1,6 @@
-# Kimi Genesis Orchestrator — public starter
+# KGO and Overseer Hub — guided learning starters
+
+**New to both projects?** Start with the [copyable ChatGPT learning prompt](START-HERE.md). It teaches KGO and the read-only Overseer Hub example step by step, asks questions, practises with your own prompts, and generates a portable **Learning Passport** for future chats. No installation is required to begin.
 
 One maintained version of the **Kimi Genesis Orchestrator** (KGO) skill, supplied for learning and installing into your own AI agent.
 
