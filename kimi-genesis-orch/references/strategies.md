@@ -96,14 +96,29 @@ Makes the actor (you, or a worker) act on real state rather than priors. Groundi
 
 **Mechanism.** Points at project-specific convention files (CLAUDE.md, AGENTS.md, README, style guides) and mandates reading. Training doesn't know your project's conventions; the project has documented them.
 
-**As your own cognitive move.** On entering a new project context, read its convention file before doing anything else. Even when the user says "just do X" — your X-in-this-project may differ from X-in-general by the project's conventions. The convention file is the agent's primary grounding.
+**As your own cognitive move.** On entering a project, read its entry guidance and inspect the relevant directory before choosing a change. Identify existing documents, their jobs, current plans and authoritative homes; inspect related content before proposing an addition. Reuse or update the existing owner, group related material by purpose, and identify stale overlap. A new file or folder needs a distinct reader/job that existing homes cannot reasonably serve. Propose broader restructuring with its consequences and approval boundary; inspection does not authorise unrelated cleanup.
 
 **As worker-prompt language.**
-> Before drafting: read CLAUDE.md for conventions and .claude/skills/ for applicable skills. Apply whatever they document.
+> Before drafting, read the project's actual entry guidance and inspect the directory and relevant existing documents. Name the home that already owns this subject and update it where suitable. If new placement is needed, explain its distinct purpose and how it fits the existing structure. Report wider stale overlap or restructuring needs without silently executing them.
 
 **Narrative case.** Without convention reading, a worker added error handling using `return None` on error paths — the project's convention is `raise`. The reviewer rejected the PR. With a CLAUDE.md read mandate, the worker matched the project style.
 
 **Slot:** 3.
+
+### Ingested spec negation check
+
+**Mechanism.** A user-supplied spec can *eliminate* part of the requested work rather than enable it. The conventional read treats every clause of a spec as a search key. The check asks a different question of each clause: does this tell me what to look for, or does it tell me the thing I was asked to find cannot be purchased? A clause that negates the request must redirect the search, not empty the result set.
+
+**As your own cognitive move.** When a user hands you a detailed spec, walk it clause by clause and sort into two bins before writing anything: *in-search* (terms, model numbers, values to query) and *negates* (statements that the target is unavailable, captive, discontinued, or not separately sold). The negates bin is where the real work hides, because a spec is written to be complete, not to be purchasable. If the request is for an artifact and the spec says that artifact is not separately sold, the answer is not "nothing found" — it is "the artifact you want is the other leg of the assembly."
+
+**As worker-prompt language.**
+> The spec below may contain clauses that make part of the requested search impossible. Before searching, list which clauses are search keys and which clauses make the target unpurchasable. If any clause negates the request, the search is redirected to the nearest purchasable equivalent and your return must state the redirect and the reason in one line. A track that returns zero results because the target cannot exist is `## ISSUES FOUND`, not an empty table.
+
+**Narrative case.** A user asked for a replacement power cable for a laptop adapter and supplied the adapter's full spec. The spec noted the DC lead was moulded into the brick. A worker that treated the spec purely as search keys searched "A18-150P1A power cable", found nothing buyable, and returned an empty table plus a guess about generic barrel plugs — an actively wrong answer. The negation check caught the captive-lead clause in the first pass and redirected the whole track to the mains-side cord, which is the thing actually purchasable.
+
+**Stack hints.** Pairs with explicit read set (the spec *is* the read set) and with falsifiable criteria (a redirected track still needs rows). Particularly load-bearing when the user is likely to paste a spec copied from a diagnostic tool, which reports facts, not availability.
+
+**Slot:** 2 + 4.
 
 ### Few-shot exemplars
 
@@ -210,9 +225,9 @@ Makes output parseable and prevents format theater. Format without content const
 
 ### Structured completion markers
 
-**Mechanism.** Worker ends with an exact machine-parseable string. Orchestrator matches by regex rather than interpreting prose. Turns "is the worker done" from a judgment call into a boolean.
+**Mechanism.** A worker ends with a machine-parseable status when its receiving contract requires one. The orchestrator can route that reported status mechanically, then verify the evidence; a matching marker does not establish that the work succeeded.
 
-**As your own cognitive move.** When you finish a substantive piece of work, name the marker explicitly. Don't trail off into prose — declare done in a way the user (or a downstream check) can verify. Even a "Status: COMPLETE" or "Status: NEEDS-INPUT" line at the bottom of your output gives the next reader a contract.
+**As your own cognitive move.** Use a marker when an actual consumer parses it. In a human reply, explain the concrete result and evidence; for ongoing work, give the next action or the decision needed. A marker helps route a return but does not prove completion or replace an understandable explanation.
 
 **As worker-prompt language.**
 > Your final message must contain exactly one of:
@@ -230,12 +245,10 @@ Makes output parseable and prevents format theater. Format without content const
 
 **Mechanism.** Answer has two layers: short top-layer summary, detailed body below. Matches attention availability — reader sees the answer first, can stop or drill in.
 
-**As your own cognitive move.** Lead with the answer. State the conclusion in one or two sentences before the reasoning. The reader who needs only the conclusion stops; the reader who needs reasoning continues.
+**As your own cognitive move.** Lead with what the reader needs to move forward: the result or proposed change and why it matters. Include enough evidence to assess it and identify the inspectable draft, diff or artifact when there is one. For ongoing work, finish with the next authorised action or a specific, answerable decision with your recommendation. Explain a correction through its consequence for the work, rather than making the reply a history of your mistakes.
 
 **As worker-prompt language.**
-> Structure as:
-> 1. TL;DR — two sentences. First states the answer; second states the key constraint or caveat.
-> 2. Details — full reasoning, as many paragraphs as the task needs.
+> Lead with the result or proposal and its consequence for the recipient. Provide the evidence and constraints needed to assess it. For ongoing work, identify the next action, responsible actor, or specific decision needed. Use human-readable explanation or machine-readable fields according to the actual receiving contract.
 
 **Narrative case.** A research worker's verbose 1200-word output buried the answer in paragraph 4. Same worker with progressive disclosure: 2-line TL;DR up top, full reasoning below — orchestrator could decide in 10 seconds whether to read further.
 
@@ -245,7 +258,7 @@ Makes output parseable and prevents format theater. Format without content const
 
 **Mechanism.** Absolute word counts are arbitrary. Contextual anchors map length to purpose.
 
-**As your own cognitive move.** Before producing a long output, name its length anchor in writing. "Length: short enough that an on-call engineer can decide whether to escalate within 30 seconds." This calibrates the output to its use, not to a number.
+**As your own cognitive move.** Fit length to what the recipient must understand or do. To shorten, remove lower-priority points before removing the context needed for the remaining points. Preserve necessary meanings, constraints, uncertainty and warnings. A short answer that requires private context or another clarification is not economical.
 
 **As worker-prompt language.**
 > Length: short enough that an on-call engineer can decide within 30 seconds whether to page the author. Longer if detail is load-bearing; shorter if not.
@@ -264,7 +277,7 @@ Makes success checkable. Without it, "done" is the actor's self-report — not e
 
 **Mechanism.** Each criterion is empirically checkable, not a vibe. "User can log in" is vibe; "POST /login returns 200 with a valid JWT for a known-good user and 401 for a known-bad one" is falsifiable.
 
-**As your own cognitive move.** Before declaring your own work done, name the criterion as a runnable check. If you can't, you don't know yet whether you're done. Reach for the strongest check available — a command, a file existence, a string match — not a feeling.
+**As your own cognitive move.** Before claiming success, identify the observation that could disprove it. Use commands and runtime traces for executable behaviour; use task-specific reader/receiver checks for guidance and communication. For a prompt, can the recipient perform the required work from supplied or demonstrably reachable inputs? For a human decision, are the proposal, consequence, necessary terms and requested decision present? Your own review is not independent reader evidence; report the verification layer actually reached.
 
 **As worker-prompt language.**
 > Success criteria. You may not emit `## PHASE COMPLETE` until you have verified each:
@@ -314,14 +327,20 @@ Calibrates tone, audience, warmth. RLHF biases models toward warmth, which is of
 
 ### Audience specification
 
-**Mechanism.** Names who the reader is. Model adapts vocabulary, assumed knowledge, depth.
+**Mechanism.** Match the text to the recipient's task, evidenced context and usable capabilities. Technical expertise is not shared session knowledge.
 
-**As your own cognitive move.** Before producing an output, name the reader. "This goes to the user, who is a developer with full project context." Or: "This goes to a worker who has zero context and needs full briefing." The audience determines what to assume vs. spell out.
+**As your own cognitive move.** Distinguish the receiving situation:
+- **Fresh agent:** rely only on the supplied packet and verified startup inputs. Include load-bearing facts, decisions, constraints and acceptance; provide discovery routes only where tools and access are established.
+- **Continuing agent:** establish which instructions, artifacts or messages are available and current. A session label does not prove retained context after a handoff or compaction.
+- **Human:** use what the conversation establishes they have seen and the terms they use. Explain consequential discoveries from files before asking them to decide.
+- **Unknown context or capability:** mark the uncertainty. Supply the minimum necessary context, or a checkable prerequisite/retrieval step; a material access blocker must be resolved before the receiver can perform that step.
+
+Check terms you introduced: use the recipient's words where possible, define necessary new terms on first use, and never substitute an ID for its meaning. Explain only what the next action needs; do not repeat established context merely to demonstrate awareness.
 
 **As worker-prompt language.**
-> Audience: a senior systems engineer who knows Linux internals and is debugging a performance regression. Assume familiarity with perf, strace, kernel scheduling. Do not explain basics.
+> Receiver: a fresh repository agent. It has this packet and the verified read-only repository tool; no prior conversation is assumed. The supplied sources establish the intended change, settled decisions and acceptance. Read the named current source files before proposing edits. If a required source is inaccessible, identify that specific gap rather than inventing its contents.
 
-**Narrative case.** Worker producing a "report" without audience defaulted to "explain everything from scratch." Same worker with audience spec produced a tight report that started at the project's actual conceptual level.
+**Narrative case.** A successor prompt said "continue the agreed plan" but supplied neither the plan nor a usable retrieval route. A different human reply asked about "H01–H11" without explaining the outcomes. Both relied on the writer's context. The repair is receiver-specific: supply the fresh agent's core context and accessible read set; explain the human's actual decision in ordinary language.
 
 **Slot:** 4 or 5.
 

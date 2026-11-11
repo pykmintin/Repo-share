@@ -1,0 +1,2 @@
+# Tested CLI and interactive browser dependencies. No cookie-extraction extra.
+notebooklm-py[browser]==0.8.6

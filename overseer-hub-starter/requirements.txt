@@ -1,0 +1,8 @@
+# Verified locally with an installed MCP 2.x Python environment.
+mcp>=2.2,<3
+fastapi>=0.141.1,<1
+uvicorn>=0.54,<1
+PyJWT[crypto]>=2.15,<3
+httpx>=0.28.1,<1
+python-dotenv>=1,<2
+pytest>=8,<10

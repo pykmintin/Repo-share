@@ -1,0 +1,11 @@
+# Installed dependencies, browser sessions and personal credentials never belong in Git.
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.notebooklm/
+storage_state.json
+master_token.json
+.env
+.env.*
+*.log

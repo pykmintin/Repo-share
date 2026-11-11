@@ -1,6 +1,6 @@
 ---
-name: orchestrator-prompts
-description: Use whenever you are about to think hard for the user OR write a prompt for another agent. Teaches cognitive strategies that make either work — same toolkit, two use-cases. Trigger on drafting/dispatching/revising a worker prompt, ingesting a non-trivial user message, asking the user a clarifying question mid-orchestration, or doing complex own-work where the temptation is to skip ingestion and dive in. Do not skip the preflight on first load — without it, this skill is a list of words the agent didn't internalize. Make sure to use this skill whenever the user describes a non-trivial task, hands you new project information, or asks for a worker prompt — even when the user doesn't name "prompts" or "orchestration" explicitly.
+name: kimi-genesis-orch
+description: 'Use only when the user explicitly invokes this skill by name or slash command.'
 ---
 
 # Orchestrator Prompts
@@ -24,16 +24,13 @@ If you are tempted to skip because the user's task feels urgent: the user can wa
 
 ### Preflight — Phase 0 (read)
 
-Read these files, in order. You don't need to memorize. You need to know what's where so you can reach for it during use.
+Read `SKILL.md` in full first. Use its catalog index to select the strategy entries needed for this task; read each selected entry completely, including its own-work application, worker-prompt application and case. Read the applicable failure patterns in `references/failure-modes.md`. Read `references/slots.md` when constructing a worker prompt. `CODEX.md` adapts retrieval for Codex without replacing this core.
 
-1. `SKILL.md` — framing, 4 forcing questions, 5 audit checks, catalog index.
-2. `references/strategies.md` — strategy catalog. Each entry has dual application (cognitive move + worker-prompt language) and a narrative case. Both pieces are load-bearing.
-3. `references/failure-modes.md` — named failures, each tagged for own-work / worker-prompt / both.
-4. `references/slots.md` — the 8-slot structure (worker-prompt construction only).
+When maintaining this skill, read every affected source file in full and check its receiving references before editing. A heading or search excerpt establishes where to look, not comprehension of the source.
 
-When done, write one sentence: the single claim this skill makes that most changes how you would have approached the user's first message before reading. This is your Phase 0 marker.
+Then apply the discipline to the actual task: state who receives the output, what context is supplied or verified (and what remains unknown), what they must be able to do afterwards, and the smallest inspectable result you will produce next. Keep this articulation brief; a restatement of the skill or a claim that you understood it is not the Phase 0 marker.
 
-Do not proceed until that sentence is written.
+Do not proceed until that task-specific articulation is written.
 
 ## The 4 forcing questions
 
@@ -45,23 +42,25 @@ Before any non-trivial action — drafting a prompt, ingesting a user message, p
 
 If the answer contains "complete," "implemented," "handled," or "done" — rewrite. Those aren't inspectable.
 
+Name the recipient and receiving situation as well as the artifact. For a fresh agent, assume only the supplied prompt/attachments and verified startup inputs; do not assume prior chats, hidden plans, tools or path access. For a continuing agent, rely on prior context only where its presence and freshness are established. For a human, use what the conversation shows they have seen, not what you learned privately from files. When context is unknown, include the necessary facts or an explicit, usable retrieval step and its access requirements; preserve any remaining uncertainty.
+
 **2. Read set.** Which exact files, messages, or artifacts must be grounded against?
 - *Applied to your own work:* what does your next move need to be informed by? Be exact about paths and which user message.
 - *Applied to a worker:* exact paths the worker must read first.
 
-"Figure out what's relevant" is not delegable — to a worker, or to your own future self.
+Supply known core sources and a bounded discovery route for genuinely unknown material. Before adding documentation, inspect the relevant directory, local guidance, existing owners and current plans; reuse or update the home that already serves the purpose. Identify stale overlap and structural problems, then propose any wider disposition within the task's authority. Create a file or folder only for a distinct reader/job that existing homes cannot reasonably serve. Paths supplied to a tool-less receiver must be accompanied by the load-bearing content; paths alone are not a read set.
 
 **3. Scope boundary.** What's the smallest piece of work that produces the artifact?
-- Larger than ~3 tasks or ~5 files → decompose.
-- Applies to own thinking too: an overly broad ingestion produces a calcified plan.
+- Decompose where outcomes, dependencies or receiving contexts separate; choose a scope that can be read, changed and verified coherently.
+- File counts are not a reason to skip load-bearing sources. Survey to locate the core, read it fully, then expand for specific unresolved relationships.
 
-**4. Dimension of choice (if user-facing).** If your next move is to ask the user something, name the real axis in writing first. "Fast vs. slow" usually hides feasibility, reversibility, or dependency. Name the real axis — not a generic one.
+**4. Dimension of choice (if user-facing).** Before asking, identify the unresolved choice, explain what changes under its meaningful alternatives, and recommend one with a reason. Supply the facts and meanings needed to answer from the message itself. Answer source-resolvable questions yourself; do not ask the user to decode file IDs, inspect unseen documents, or repeat a settled decision. "Fast vs. slow" often hides feasibility, reversibility or dependency; test the actual choice rather than forcing a binary.
 
 ## The 5 audit checks (pre-action)
 
 Before sending a prompt OR committing to your own next move, answer five in writing. A check that fails means re-think, not push-through.
 
-**1. Simulate the actor.** Read the prompt as the worker / read your plan as the future-you executing it. Is any instruction physically impossible? An impossibility is a symptom, not a fixable detail — re-think the whole approach.
+**1. Simulate the recipient.** Read a worker prompt from that worker's supplied context and verified capabilities; read a human reply from what the conversation establishes they know. Can they carry out the instruction or answer the question without your private context? Unknown context stays unknown; supply the missing essentials or an accessible retrieval route. A required step that cannot be performed means the approach must change.
 
 **2. Locate the success test.** Point to the exact line that says how you'll know you're done. No such line → not ready. Line exists but isn't falsifiable → decoration.
 
@@ -69,7 +68,21 @@ Before sending a prompt OR committing to your own next move, answer five in writ
 
 **4. Check for false binaries.** Does your choice have more than two real options? Is the axis you've named the real one? Generic "fast vs. slow" usually hides feasibility.
 
-**5. Check scope against context budget.** More than ~3 tasks or ~5 files? Decompose. One too-big task produces worse output than two right-sized tasks every time.
+**5. Check scope against context budget.** Can the required sources, work and verification fit without shallow reads or silent omissions? Split independent outcomes or stage the investigation when needed. Preserve the core read set and receiving context rather than cutting necessary facts to meet an arbitrary count.
+
+## The dispatch manifest (visible compliance)
+
+"In writing" is this skill's enforcement mechanism, and it only works if the writing is visible. A check that runs in your head leaves no trace, so it cannot be audited and cannot fail — that is not compliance, it is the feeling of compliance.
+
+Before you send any worker prompt — including one built to another skill's template (e.g. hpp) — ship in the same message a compact manifest:
+
+- **Success test:** one falsifiable line. What must the worker's return contain for you to call it done? No line → not ready.
+- **Slots:** for each of the 8 slots, `filled` or `skipped: <one-line why>`. A skipped slot without a written why is a defect, not a choice.
+- **Audit checks:** each of the 5, one word — `pass` / `fail` / `re-think`. Any `re-think` blocks dispatch until resolved.
+
+If you cannot write the manifest, the prompt is not ready. For own-work, compress it: before a non-trivial move, one written line naming the inspectable result, its success test and the bounded scope.
+
+Keep human replies distinct from machine-oriented worker returns. For ongoing work, lead with the useful result or concrete proposal, its consequence, what the reader can inspect, and the next authorised action or specific decision needed. A status marker or account of your effort does not supply those meanings. When the task is finished, state the result and any remaining limitation; do not invent a question merely to continue the conversation.
 
 ## The strategy catalog (index)
 

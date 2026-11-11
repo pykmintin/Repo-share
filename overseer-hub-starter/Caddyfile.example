@@ -1,0 +1,6 @@
+# Replace the hostname with your own publicly resolving DNS name.
+# Only run after reviewing firewall, TLS and server ownership.
+# Caddy obtains/renews HTTPS when ports 80/443 and DNS are correctly configured.
+YOUR-HOSTNAME {
+    reverse_proxy 127.0.0.1:7701
+}

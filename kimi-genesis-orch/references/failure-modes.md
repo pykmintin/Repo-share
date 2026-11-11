@@ -85,7 +85,7 @@ Output: three sections, three bullets each, each bullet generic ("Address the pr
 
 **Catch.** Slot 6 (success criteria) with the falsifiability test.
 
-**Counter.** Every criterion becomes a command the actor runs. If it can't be a command, it's not a criterion. "Tests pass" isn't a criterion; `pytest tests/ -q exits 0` is.
+**Counter.** Every criterion names observable evidence appropriate to its claim. Executable behaviour needs commands/traces and inspected results. Guidance needs a representative receiver task and observable outcome; a mechanical text check cannot prove understanding. "Tests pass" is insufficient; `pytest tests/ -q exits 0` is inspectable. "The reader understands" is also insufficient: state what they must be able to explain or do, and distinguish an author's review from an independent reader trial.
 
 **Weak.**
 > Success criteria:
@@ -127,6 +127,43 @@ Output: three sections, three bullets each, each bullet generic ("Address the pr
 Worker 2 sees the failure as data, not its own mistake. Diagnosis isn't colored by having produced the failure.
 
 ---
+
+## 12. Silent dispatch audits  *(BOTH)*
+
+**Pattern.** Orchestrator runs the 4 forcing questions and the 5 audit checks in its head, ships the prompt, and surfaces the reasoning only when asked — or never. The skill's "in writing" requirement is met by nothing the user can see; compliance is self-reported, so it can't be verified and can't fail. Same failure rate as no process, with the feeling of having had one.
+
+**Why.** Internal reasoning feels like compliance because the check "passed" inside the head. The artifact is what makes process real: a check that leaves no trace cannot be audited, so it cannot be wrong.
+
+**Catch.** The dispatch manifest (SKILL.md).
+
+**Counter.** Every dispatched prompt ships with a compact manifest in the same message: a falsifiable success-test line, per-slot `filled` / `skipped: why`, and the 5 audit verdicts. An unwritable manifest blocks dispatch.
+
+**Weak.**
+> [No manifest. "I ran the checks." — the checks are invisible, so their result is unverifiable.]
+
+**Strong.**
+> Success test: worker return contains `## PLAN COMPLETE` and each required section.
+> Slots: 1 filled · 2 filled · 3 filled · 4 filled · 5 filled · 6 filled · 7 filled · 8 skipped: pass-fail planning task, rubric overhead doesn't earn its keep.
+> Audits: simulate pass · success-test pass · delegation pass · binaries pass · scope pass.
+
+## 13. Writing from the author's private context *(BOTH)*
+
+**Pattern.** The writer assumes a fresh agent has prior chats, assumes a continuing agent retained everything, or asks a human to decide using unexplained labels and unseen files. It may report extensive effort while leaving the reader without an inspectable proposal or next step.
+
+**Catch.** Forcing questions 1–2 and audit 1; audience specification and progressive disclosure in `strategies.md`.
+
+**Counter.** Establish the receiving situation and evidence for context/capability. Supply the missing load-bearing facts or a usable retrieval route. For a human, state the proposed change, consequence and next action or answerable decision in their terms. Shorten by selecting fewer points, not by dropping the context needed to understand them.
+
+**Weak.**
+> I read the core files and saved a checkpoint. Do H01–H11 still align?
+
+**Strong — human decision (illustrative).**
+> The two setup guides repeat the same procedure, and each also contains unique instructions. I recommend keeping one guide and folding the unique instructions into it, then repairing the links before retiring the duplicate. This gives future agents one maintained source without losing either guide's useful content. The alternative is to separate their audiences and remove the overlap. I recommend the single guide because both currently serve the same reader. Which arrangement do you want?
+
+**Strong — fresh agent (illustrative; verify the stated access before issuing it).**
+> Your task is to reconcile the unfinished documentation programme. This packet includes the target outcomes, known later decisions and current evidence limits. You have verified repository read access: read the named core sources fully, follow their explicit supersession links, and return the reconciled next work with evidence. Do not assume prior conversations or treat an old completion label as proof.
+
+**Validation boundary.** A fluent preflight sentence or successful simulation is not a demonstrated improvement. For any training exercise, require a concrete choice and consequence on an unfamiliar case; mix genuine choices with cases that reject the proposed framing. Do not fix the number of lessons in advance or make "neither" the answer to every case. Add exercises only for uncovered failures; call unrun reader trials unverified.
 
 ## How to use this file
 

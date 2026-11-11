@@ -100,6 +100,8 @@ Ambiguous on scope, trigger, test requirements, consumer.
 
 Names the bug precisely, the confirmed root cause (worker doesn't re-diagnose), the downstream checks (worker knows the grade), requires simulate-before-execute.
 
+Also state the receiving situation. A fresh worker has only the supplied packet and verified startup inputs; a continuing worker's available context must be established rather than assumed. Include load-bearing decisions and facts inline, with exact retrieval steps for reachable sources. Mark unknown access/context and keep inaccessible prerequisites from becoming impossible instructions. Expertise does not imply knowledge of previous sessions.
+
 **Break mode.** Worker produces a solution that "implements token refresh" abstractly but doesn't connect to the upload handler.
 
 ---
@@ -165,7 +167,7 @@ Names exact in-scope files; names specific drift patterns; gives decision proced
 >
 > Binary gate. "Mostly done" is failure. "Tests will pass after the reviewer adjusts them" is failure.
 
-Every criterion is a runnable command. Worker can't claim done without having run them.
+For executable work, the criteria above are runnable commands whose results must be inspected. For guidance or decision-support work, name the receiver task and observable success/failure instead: can a fresh agent perform it from supplied/reachable inputs, or can a human identify the proposal, consequence and decision without decoding private labels? Record author review, independent reader trial and runtime proof separately; a text check alone cannot certify understanding.
 
 **Break mode.** Worker emits completion markers for 70%-done work. Orchestrator wastes an iteration catching gaps that structured criteria would have prevented.
 
@@ -173,9 +175,9 @@ Every criterion is a runnable command. Worker can't claim done without having ru
 
 ## Slot 7: Return format
 
-**Behavior needed.** Orchestrator-parseable output. Orchestrator extracts what it needs without interpreting prose; worker can't accidentally hide failure inside rambling.
+**Behavior needed.** Output the actual recipient can use. For automated orchestration, provide the parseable fields and markers its contract requires. For a human, lead with the concrete result/proposal, consequence and evidence, then the next action or specific decision. Keep necessary context and define unfamiliar terms; neither prose nor a table earns its place by format alone.
 
-**Why here.** Contract between worker output and orchestrator's next step. If the orchestrator has to read prose to figure out success, you have no contract.
+**Why here.** The return connects the worker's evidence to the recipient's next step. An automated consumer needs stable fields; a human needs an understandable result and consequence. In either case, specify where status, evidence, limitations and next action appear.
 
 **Strategies that fit.** Structured completion markers, content-per-field constraint, progressive disclosure, length control.
 
@@ -210,9 +212,9 @@ Worker writes 500 words of prose. Orchestrator has to read it.
 >
 > Each Changes bullet must name a specific file and specific action. "Improved the module" is invalid — replace with the specific function or change.
 
-Headers are machine-extractable. Content-per-field constraint prevents "improved the module" non-answers. Marker is standalone, not buried in prose.
+Headers in this example are machine-extractable. Content-per-field constraints prevent "improved the module" non-answers. Use a marker when the receiving contract needs one; it does not prove the criteria passed. A human-facing return must explain the inspectable result and the next step in ordinary terms, not simply expose the machine status.
 
-**Break mode.** Orchestrator has to interpret free-form prose. Missing data discovered later, during a spot-check that doesn't find what it needs.
+**Break mode.** The return omits decision-relevant evidence or makes the recipient decode unexplained terms. A valid marker or neat layout conceals the missing substance until a later check.
 
 ---
 
